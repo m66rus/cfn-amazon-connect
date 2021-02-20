@@ -1,0 +1,332 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  connect-deployment-automation
+  Sample SAM Template for connect-deployment-automation
+
+Globals:
+  Function:
+    Timeout: 60
+
+Parameters:
+  ConnectInstanceId:
+    Description: The Instance Id for the Amazon Connect resource being delivered too
+    Default: c420d951-a9ee-4bfb-a44b-9ec1f71f9093
+    Type: String
+  DefaultOutboundQueueName:
+    Description: The name of the Queue to be set as default outbound queue for the Routing Profile
+    Default: BasicQueue       #Example:- "BasicQueue"
+    Type: String
+  RoutingProfileName:
+    Description: The name of the Routing Profile to be created
+    Type: String
+  ContactFlowName:
+    Description: The name of the contact flow to be created
+    Type: String
+  S3Bucket:
+    Description: The name of the bucket where contact flow files are stored
+    Default: autoconnectdeployment-puneaccount   #Example : "autoconnectdeployment-puneaccount"
+    Type: String
+  ContactFlowFileKey:
+    Description: The key to the location of s3 file that contains contact flow
+    Default: TestCF/NBS_Default_ErrorHandling.json  #Example :- "TestCF/NBS_Default_ErrorHandling.json"
+    Type: String
+  LambdaToAssociate:
+    Description: The name of the lambda function that needs to be associated/disassociate to connect instance
+    Default: LambdaToAssociate  #Example :- "LambdaToAssociate"
+    Type: String
+  LexToAssociate:
+    Description: The name of the lex bot that needs to be associated/disassociate to connect instance
+    Default: CTI_Demo_Lex  #Example :- "CTI_Demo_Lex"
+    Type: String
+  LexRegion:
+    Description: The region of the lex bot that needs to be associated/disassociate to connect instance
+    Default: us-east-1  #Example :- "us-east-1"
+    Type: String
+
+Resources:
+  LambdaRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+            - sts:AssumeRole
+        Path: "/"
+        Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: arn:aws:logs:*:*:*
+        - PolicyName: connect
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - connect:UpdateContactFlowName
+              - connect:UpdateContactFlowContent
+              - connect:DescribeContactFlow
+              - connect:DescribeInstance
+              - connect:CreateContactFlow
+              - connect:ListQueues
+              - connect:ListPrompts
+              - connect:ListContactFlows
+              - iam:PutRolePolicy
+              - ds:DescribeDirectories
+              Resource:
+              - "*"
+        - PolicyName: s3
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - s3:GetObject
+              Resource: 
+              - arn:aws:s3:::*/*
+        - PolicyName: lambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - lambda:GetFunction
+              - lambda:ListFunctions
+              Resource: 
+              - "*"
+
+  AssoLambdaRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+            - sts:AssumeRole
+        Path: "/"
+        Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: arn:aws:logs:*:*:*
+        - PolicyName: connect
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - connect:ListLambdaFunctions
+              - connect:AssociateLambdaFunction
+              - connect:DisassociateLambdaFunction
+              Resource:
+              - "*"
+        - PolicyName: lambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - lambda:GetFunction
+              - lambda:ListFunctions
+              - lambda:RemovePermission
+              - lambda:AddPermission
+              Resource: 
+              - "*"
+
+  createRoutingProfile:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+            - sts:AssumeRole
+        Path: "/"
+        Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: arn:aws:logs:*:*:*
+        - PolicyName: connect
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - connect:ListQueues
+              - connect:CreateRoutingProfile
+              - connect:UpdateRoutingProfileName
+              Resource:
+              - "*"
+
+  AssoLexRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+            - sts:AssumeRole
+        Path: "/"
+        Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: arn:aws:logs:*:*:*
+        - PolicyName: connect
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - connect:ListLambdaFunctions
+              - connect:AssociateLexBot
+              - connect:DisassociateLexBot
+              - connect:ListLexBots
+              Resource:
+              - "*"
+        - PolicyName: lex
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - lex:GetBots
+              - lex:GetBot
+              Resource: 
+              - "*"
+        - PolicyName: IAM
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - iam:PutRolePolicy
+              - iam:AttachRolePolicy
+              Resource: 
+              - "*"
+
+  CreateContactFlowFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/
+      Handler: contact-flow.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt LambdaRole.Arn
+
+  CreateContactFlowFunctioninvoke:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: CreateContactFlowFunction
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt CreateContactFlowFunction.Arn
+      InstanceId: !Ref ConnectInstanceId                    #instanceID where resources are to be deployed
+      ContactFlowName: !Ref ContactFlowName                 #name of the contact flow to be created
+      Type: "CONTACT_FLOW"                                  #type of contact flow to be created
+      Description: "Created using cloudformation template"  #description of the contact flow
+      S3Bucket: !Ref S3Bucket                               #s3 bucket name of the existing contact flow stored
+      ContactFlowKey: !Ref ContactFlowFileKey               #key of the contact flow object in s3
+
+  AssociateLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/
+      Handler: associatelambda.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt AssoLambdaRole.Arn
+
+  AssociateLambdaFunctionInvoke:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: AssociateLambdaFunction
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt AssociateLambdaFunction.Arn
+      InstanceId: !Ref ConnectInstanceId                  #instanceID where resources are to be deployed
+      LambdaFunctionName: !Ref LambdaToAssociate          #lambda function name to be associated/disassociate
+      
+  AssociateLexBotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/
+      Handler: associatelex.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt AssoLexRole.Arn
+      
+  AssociateLexBotFunctionInvoke:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: AssociateLexBotFunction
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt AssociateLexBotFunction.Arn
+      InstanceId: !Ref ConnectInstanceId                  #instanceID where resources are to be deployed
+      LexName: !Ref LexToAssociate                        #lex bot name to be associated/disassociate
+      LexRegion: !Ref LexRegion                           #lex region of the lext bot to be associated/disassociate
+  
+  CreateRoutingProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/
+      Handler: create-routing-profile.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt createRoutingProfile.Arn
+
+  CreateRoutingProfileFunctionInvoke:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: CreateRoutingProfileFunction
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt CreateRoutingProfileFunction.Arn
+      InstanceId: !Ref ConnectInstanceId                    #instanceID where resources are to be deployed
+      QueueName: !Ref DefaultOutboundQueueName              #Name of the Queue set as default outbound queue of Routing profile
+      Name: !Ref RoutingProfileName                         #Name of the routing profile to be created
+      Description: 'Created using cloudformation template'  #Default description of routing profile
+      MediaChannel: CHAT                                    #CALL || CHAT || TASK
+
+
+Outputs:
+  AssocaiteLambdaFunction:
+    Description: "The lambda function has been associated successfully"
+    Value: !GetAtt AssociateLambdaFunction.Arn
+  AssocaiteLexFunction:
+    Description: "The lex bot has been associated successfully"
+    Value: !GetAtt AssociateLexBotFunction.Arn
+  CreateContactFlowFunction:
+    Description: "The contact flow has been created successfully"
+    Value: !GetAtt CreateContactFlowFunction.Arn
+  CreateRoutingProfileFunction:
+    Description: "The routing profile has been created successfully"
+    Value: !GetAtt CreateRoutingProfileFunction.Arn

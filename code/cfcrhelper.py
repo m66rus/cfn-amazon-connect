@@ -64,7 +64,16 @@ def cr_handler(event, context, create, update, delete):
 
 
 def send_response(event, context, response_status, response_data, physical_resource_id):
-    '''Send a resource manipulation status response to CloudFormation'''
+    """[summary]
+
+    Args:
+        event ([type]): [description]
+        context ([type]): [description]
+        response_status ([type]): [description]
+        response_data ([type]): [description]
+        physical_resource_id ([type]): [description]
+    """    
+    
     response_body = json.dumps({
         "Status": response_status,
         "Reason": "See the details in CloudWatch Log Stream: " + context.log_stream_name,

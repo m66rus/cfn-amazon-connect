@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'A template for building AWS resources'
+
+Parameters:
+  
+  DestinationEnv:
+    Description: The Environment you are deploing to
+    Default: sit
+    AllowedValues:   
+    - sit
+    - uat
+    - prod
+    Type: String
+    MinLength: 3
+    MaxLength: 4
+
+Mappings:
+  Instances:
+    sit:
+      InstanceArn: m66russ3uk
+    uat:
+      InstanceArn: m66russ3ire
+    prod:
+      InstanceArn: m66russ3wales
+    
+
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:*
+            Resource: 
+            - arn:aws:logs:*:*:*
+      - PolicyName: connect-access
+        PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              Action:
+                - connect:*
+                - lambda:ListFunctions
+              Effect: Allow
+              Resource:
+              - arn:aws:iam::*:role/aws-service-role/connect.amazonaws.com/*
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonConnect_FullAccess
+
+     
+  AssociateLex:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: associatelex.handler
+      Code: ./code/
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+  
+  LexAssoication:
+    Type: AWS::CloudFormation::CustomResource
+    Version: "1.0"
+    Properties:
+      InstanceId: !FindInMap [Instances, !Ref DestinationEnv, InstanceArn]
+      ServiceToken: !GetAtt AssociateLex.Arn
+      LexName: "BankApp"
+      LexRegion: "eu-west-2"
+
+
+
+Outputs:
+  EnvironmentName:
+    Value:
+      Ref: DestinationEnv
+    Description: This is the environment you are deploying too.      

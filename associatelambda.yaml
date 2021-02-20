@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "A template for building AWS resources"
+
+Parameters:
+  ConnectInstanceId:
+    Description: The Instance Id for the Amazon Connect resource being delivered too
+    Default: 3d568464-59ba-43fd-a9ec-4449d9fb2ac6
+    Type: String
+
+Resources:
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                Resource:
+                  - arn:aws:logs:*:*:*
+        - PolicyName: connect-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              Action:
+                - connect:*
+                - lambda:ListFunctions
+              Effect: Allow
+              Resource:
+                - arn:aws:iam::*:role/aws-service-role/connect.amazonaws.com/*
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonConnect_FullAccess
+
+  AssociateLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: associatelambda.handler
+      Code: ./code/
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.8
+
+  LambdaAssoication:
+    Type: AWS::CloudFormation::CustomResource
+    Version: "1.0"
+    Properties:
+      InstanceId: !Ref ConnectInstanceId
+      ServiceToken: !GetAtt AssociateLambda.Arn
+      LambdaName: "CTRCapture"
+      LambdaFunctionArn: "arn:aws:lambda:eu-west-2:935479125717:function:CTRCapture"
