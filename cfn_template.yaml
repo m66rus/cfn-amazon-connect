@@ -1,1 +1,30 @@
-# Initial template
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'A template for deploying Amazon Connect  resources'
+
+Parameters:
+  DestinationEnv:
+    Description: The Environment you are deploing to
+    Default: sit
+    AllowedValues:   
+    - sit
+    - uat
+    - prod
+    Type: String
+    MinLength: 3
+    MaxLength: 4
+
+Mappings:
+  Instances:
+    sit:
+      InstanceArn: m66russ3uk
+    uat:
+      InstanceArn: m66russ3ire
+    prod:
+      InstanceArn: m66russ3wales
+    
+
+Outputs:
+  EnvironmentName:
+    Value:
+      Ref: DestinationEnv
+    Description: This is the environment you are deploying too.      
